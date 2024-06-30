@@ -6,12 +6,17 @@ import {
   TextInput,
   View,
 } from "react-native";
-import React, { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Feather, FontAwesome6, Ionicons } from "@expo/vector-icons"; //using this package for icons
 import { theme } from "../../constants/theme";
 import { wp, hp } from "../../helpers/comman";
 import Categories from "../../components/categories";
+import { apiCall } from "../../api";
+import ImageGrid from "../../components/imageGrid";
+import { debounce } from "lodash";
+
+var page = 1;
 
 const HomeScreen = () => {
   const { top } = useSafeAreaInsets();
@@ -20,9 +25,65 @@ const HomeScreen = () => {
   const searchInputRef = useRef(null);
   const [activeCategory, setActiveCategory] = useState(null);
 
-  const handleChangeCategories = (cat) => {
-    setActiveCategory(cat);
+  const [images, setImages] = useState([]);
+
+  useEffect(() => {
+    fetchImages();
+  }, []);
+
+  const fetchImages = async (params = { page: 1 }, append = false) => {
+    console.log("params: ", params, append);
+    let res = await apiCall(params);
+    if (res.success && res?.data?.hits) {
+      if (append) {
+        setImages([...images, ...res.data.hits]);
+      } else {
+        setImages([...res.data.hits]);
+      }
+    }
   };
+
+  const handleChangeCategories = (category) => {
+    setActiveCategory(category);
+    clearSearch();
+    setImages([]);
+    page = 1;
+    let params = {
+      page,
+      // ...filters,
+    };
+    if (category) params.category = category;
+    fetchImages(params, false);
+  };
+
+  const handleSearch = (text) => {
+    setSearch(text);
+    if (text.length > 2) {
+      //search images for this text
+      page = 1;
+      setImages([]);
+      setActiveCategory(null); // clears the category when searching
+      fetchImages({ page, q: text }, false);
+    }
+
+    if (text == "") {
+      //reset images
+      page = 1;
+      searchInputRef?.current?.clear();
+      setImages([]);
+      setActiveCategory(null); // clears the category when searching
+      fetchImages({ page }, false);
+    }
+  };
+
+  const clearSearch = () => {
+    setSearch("");
+    searchInputRef?.current?.clear();
+  };
+
+  //we need to delay the search functionality of the search bar (debouncing effect)
+  //for that we are using Lodash package
+  const handleTextDebounce = useCallback(debounce(handleSearch, 400), []);
 
   return (
     <View style={[styles.container, { paddingTop }]}>
@@ -52,13 +113,16 @@ const HomeScreen = () => {
           </View>
           <TextInput
             placeholder="Search for photos..."
-            value={search}
+            // value={search}
             ref={searchInputRef}
-            onChangeText={(value) => setSearch(value)}
+            onChangeText={handleTextDebounce}
             style={[styles.searchInput]}
           />
           {search && (
-            <Pressable style={styles.closeIcon}>
+            <Pressable
+              style={styles.closeIcon}
+              onPress={() => handleSearch("")}
+            >
               <Ionicons
                 name="close"
                 size={24}
@@ -75,6 +139,9 @@ const HomeScreen = () => {
             handleChangeCategories={handleChangeCategories}
           />
         </View>
+
+        {/* images masonry grid */}
+        <View>{images.length > 0 && <ImageGrid images={images} />}</View>
       </ScrollView>
     </View>
   );
