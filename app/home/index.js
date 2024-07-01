@@ -15,6 +15,7 @@ import Categories from "../../components/categories";
 import { apiCall } from "../../api";
 import ImageGrid from "../../components/imageGrid";
 import { debounce } from "lodash";
+import FiltersModal from "../../components/filtersModal";
 
 var page = 1;
 
@@ -24,6 +25,8 @@ const HomeScreen = () => {
   const [search, setSearch] = useState("");
   const searchInputRef = useRef(null);
   const [activeCategory, setActiveCategory] = useState(null);
+  const modalRef = useRef(null);
+  const [filters, setFilters] = useState(null);
 
   const [images, setImages] = useState([]);
 
@@ -41,6 +44,14 @@ const HomeScreen = () => {
         setImages([...res.data.hits]);
       }
     }
+  };
+
+  const openFiltersModal = () => {
+    modalRef.current?.present();
+  };
+
+  const closeFiltersModal = () => {
+    modalRef.current?.close();
   };
 
   const handleChangeCategories = (category) => {
@@ -76,6 +87,51 @@ const HomeScreen = () => {
     }
   };
 
+  const clearThisFilter = (filterName) => {
+    let filterz = { ...filters };
+    delete filterz[filterName];
+    setFilters(filterz);
+    page = 1;
+    setImages([]);
+    let params = {
+      page,
+      ...filterz,
+    };
+    if (activeCategory) params.category = activeCategory;
+    if (search) params.q = search;
+    fetchImages(params, false);
+  };
+
+  const applyFilters = () => {
+    if (filters) {
+      page = 1;
+      setImages([]);
+      let params = {
+        page,
+        ...filters,
+      };
+      if (activeCategory) params.category = activeCategory;
+      if (search) params.q = search;
+      fetchImages(params, false);
+    }
+    closeFiltersModal();
+  };
+
+  const resetFilters = () => {
+    if (filters) {
+      page = 1;
+      setFilters(null);
+      setImages([]);
+      let params = {
+        page,
+      };
+      if (activeCategory) params.category = activeCategory;
+      if (search) params.q = search;
+      fetchImages(params, false);
+    }
+    closeFiltersModal();
+  };
+
   const clearSearch = () => {
     setSearch("");
     searchInputRef?.current?.clear();
@@ -92,7 +148,7 @@ const HomeScreen = () => {
         <Pressable>
           <Text style={styles.title}>Pixels</Text>
         </Pressable>
-        <Pressable>
+        <Pressable onPress={openFiltersModal}>
           <FontAwesome6
             name="bars-staggered"
             size={22}
@@ -143,6 +199,16 @@ const HomeScreen = () => {
         {/* images masonry grid */}
         <View>{images.length > 0 && <ImageGrid images={images} />}</View>
       </ScrollView>
+
+      {/* Filters  */}
+      <FiltersModal
+        modalRef={modalRef}
+        filters={filters}
+        setFilters={setFilters}
+        onClose={closeFiltersModal}
+        onApply={applyFilters}
+        onReset={resetFilters}
+      />
     </View>
   );
 };
