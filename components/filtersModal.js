@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { BottomSheetModal, BottomSheetView } from "@gorhom/bottom-sheet";
 import React, { useMemo } from "react";
 import { wp, hp, capitilize } from "../helpers/comman";
@@ -59,6 +59,28 @@ const FiltersModal = ({
               </Animated.View>
             );
           })}
+
+          {/* actions  */}
+          <Animated.View
+            entering={FadeInDown.delay(500).springify().damping(11)}
+            style={styles.buttons}
+          >
+            <Pressable style={styles.resetButton} onPress={onReset}>
+              <Text
+                style={[
+                  styles.buttonText,
+                  { color: theme.colors.neutral(0.9) },
+                ]}
+              >
+                Reset
+              </Text>
+            </Pressable>
+            <Pressable style={styles.applyButton} onPress={onApply}>
+              <Text style={[styles.buttonText, { color: theme.colors.white }]}>
+                Apply
+              </Text>
+            </Pressable>
+          </Animated.View>
         </View>
       </BottomSheetView>
     </BottomSheetModal>

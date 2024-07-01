@@ -5,6 +5,7 @@ import {
   Text,
   TextInput,
   View,
+  ActivityIndicator,
 } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -16,10 +17,12 @@ import { apiCall } from "../../api";
 import ImageGrid from "../../components/imageGrid";
 import { debounce } from "lodash";
 import FiltersModal from "../../components/filtersModal";
+import { useRouter } from "expo-router";
 
 var page = 1;
 
 const HomeScreen = () => {
+  const router = useRouter();
   const { top } = useSafeAreaInsets();
   const paddingTop = top > 0 ? top + 10 : 30;
   const [search, setSearch] = useState("");
@@ -27,8 +30,9 @@ const HomeScreen = () => {
   const [activeCategory, setActiveCategory] = useState(null);
   const modalRef = useRef(null);
   const [filters, setFilters] = useState(null);
-
+  const scrollRef = useRef(null);
   const [images, setImages] = useState([]);
+  const [isReached, setIsReached] = useState(false);
 
   useEffect(() => {
     fetchImages();
@@ -61,7 +65,7 @@ const HomeScreen = () => {
     page = 1;
     let params = {
       page,
-      // ...filters,
+      ...filters,
     };
     if (category) params.category = category;
     fetchImages(params, false);
@@ -137,6 +141,38 @@ const HomeScreen = () => {
     searchInputRef?.current?.clear();
   };
 
+  const handleScroll = (event) => {
+    const contentHeight = event.nativeEvent.contentSize.height;
+    const scrollViewHeight = event.nativeEvent.layoutMeasurement.height;
+    const scrollOffset = event.nativeEvent.contentOffset.y;
+    const bottomPosition = contentHeight - scrollViewHeight;
+
+    if (scrollOffset >= bottomPosition - 1) {
+      if (!isReached) {
+        setIsReached(true);
+        console.log("reached bottom");
+        //fetch more images
+        ++page;
+        let params = {
+          page,
+          ...filters,
+        };
+        if (activeCategory) params.category = activeCategory;
+        if (search) params.q = search;
+        fetchImages(params, true);
+      }
+    } else if (isReached) {
+      setIsReached(false);
+    }
+  };
+
+  const handleScrollUp = () => {
+    scrollRef?.current?.scrollTo({
+      y: 0,
+      animated: true,
+    });
+  };
+
   //we need to delay the search functionality of the search bar (debouncing effect)
   //for that we are using Lodash package
   const handleTextDebounce = useCallback(debounce(handleSearch, 400), []);
@@ -145,7 +181,7 @@ const HomeScreen = () => {
     <View style={[styles.container, { paddingTop }]}>
       {/* header  */}
       <View style={styles.header}>
-        <Pressable>
+        <Pressable onPress={handleScrollUp}>
           <Text style={styles.title}>Pixels</Text>
         </Pressable>
         <Pressable onPress={openFiltersModal}>
@@ -156,8 +192,12 @@ const HomeScreen = () => {
           />
         </Pressable>
       </View>
-
-      <ScrollView contentContainerStyle={{ gap: 15 }}>
+      <ScrollView
+        onScroll={handleScroll}
+        scrollEventThrottle={5} // how often scroll event will fire while scrolling (in ms)
+        ref={scrollRef}
+        contentContainerStyle={{ gap: 15 }}
+      >
         {/* searchBar */}
         <View style={styles.searchBar}>
           <View style={styles.searchIcon}>
@@ -196,8 +236,57 @@ const HomeScreen = () => {
           />
         </View>
 
+        {/* filters */}
+        {filters && (
+          <View>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.filters}
+            >
+              {Object.keys(filters).map((key, index) => {
+                return (
+                  <View key={key} style={styles.filterItem}>
+                    {key == "colors" ? (
+                      <View
+                        style={{
+                          width: 30,
+                          height: 20,
+                          borderRadius: 7,
+                          backgroundColor: filters[key],
+                        }}
+                      />
+                    ) : (
+                      <Text style={styles.filterItemText}>{filters[key]}</Text>
+                    )}
+                    <Pressable
+                      style={styles.filterCloseIcon}
+                      onPress={() => clearThisFilter(key)}
+                    >
+                      <Ionicons
+                        name="close"
+                        size={14}
+                        color={theme.colors.neutral(0.9)}
+                      />
+                    </Pressable>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          </View>
+        )}
+
         {/* images masonry grid */}
-        <View>{images.length > 0 && <ImageGrid images={images} />}</View>
+        <View>
+          {images.length > 0 && <ImageGrid images={images} router={router} />}
+        </View>
+
+        {/* loading */}
+        <View
+          style={{ marginBottom: 70, marginTop: images.length > 0 ? 10 : 90 }}
+        >
+          <ActivityIndicator size="large" />
+        </View>
       </ScrollView>
 
       {/* Filters  */}
@@ -234,13 +323,13 @@ const styles = StyleSheet.create({
   searchBar: {
     marginHorizontal: wp(4),
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
     borderWidth: 1,
     borderColor: theme.colors.grayBG,
-    backgroundColor: theme.colors.white,
     padding: 6,
     paddingLeft: 10,
+    backgroundColor: theme.colors.white,
     borderRadius: theme.radius.lg,
   },
   searchIcon: {
@@ -248,14 +337,35 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-    borderRadius: theme.radius.sm,
+    borderRadius: theme.radius.md,
     paddingVertical: 10,
     fontSize: hp(1.8),
-    outlineWidth: 0,
   },
   closeIcon: {
     backgroundColor: theme.colors.neutral(0.1),
     padding: 8,
     borderRadius: theme.radius.sm,
+  },
+  filters: {
+    paddingHorizontal: wp(4),
+    gap: 10,
+  },
+  filterItem: {
+    backgroundColor: theme.colors.grayBG,
+    padding: 3,
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: theme.radius.xs,
+    padding: 8,
+    gap: 10,
+    paddingHorizontal: 10,
+  },
+  filterItemText: {
+    fontSize: hp(1.9),
+  },
+  filterCloseIcon: {
+    backgroundColor: theme.colors.neutral(0.2),
+    padding: 4,
+    borderRadius: 7,
   },
 });

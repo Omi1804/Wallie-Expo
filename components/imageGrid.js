@@ -7,7 +7,7 @@ import { wp, getColumnCount } from "../helpers/comman";
 //For masonarty layout of image grid we use FlashList of this site https://shopify.github.io/flash-list/
 //read its docs for masonary layout
 
-const ImageGrid = ({ images }) => {
+const ImageGrid = ({ images, router }) => {
   const columns = getColumnCount();
 
   return (
@@ -19,6 +19,7 @@ const ImageGrid = ({ images }) => {
         contentContainerStyle={styles.listContainerStyle}
         renderItem={({ item, index }) => (
           <ImageCard
+            router={router}
             item={item}
             index={index}
             columns={columns}
