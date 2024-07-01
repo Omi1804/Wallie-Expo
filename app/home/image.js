@@ -17,7 +17,8 @@ import { Image } from "expo-image";
 import Animated, { FadeInDown } from "react-native-reanimated";
 import { Octicons } from "@expo/vector-icons";
 import * as FileSystem from "expo-file-system";
-// import * as Sharing from "expo-sharing";
+import * as Sharing from "expo-sharing";
+import Toast from "react-native-toast-message";
 
 const ImageScreen = () => {
   const router = useRouter();
@@ -70,6 +71,8 @@ const ImageScreen = () => {
     }
   };
 
+  //for sharing we are using package expo sharing
+  // https://docs.expo.dev/versions/latest/sdk/sharing/
   const handleShareImage = async () => {
     if (Platform.OS === "web") {
       showToast("Link copied");
@@ -95,6 +98,22 @@ const ImageScreen = () => {
       Alert.alert("Image", error.message, [{ text: "OK" }]);
       return null;
     }
+  };
+
+  const showToast = (message) => {
+    Toast.show({
+      type: "success",
+      text1: message,
+      position: "bottom",
+    });
+  };
+
+  const toastConfig = {
+    success: ({ text1, props, ...rest }) => (
+      <View style={styles.toast}>
+        <Text style={styles.toastText}>{text1}</Text>
+      </View>
+    ),
   };
 
   return (
@@ -143,6 +162,7 @@ const ImageScreen = () => {
           )}
         </Animated.View>
       </View>
+      <Toast config={toastConfig} visibilityTime={2500} />
     </BlurView>
   );
 };
